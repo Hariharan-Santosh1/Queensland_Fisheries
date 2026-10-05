@@ -55,7 +55,7 @@ ggplot(data = TigerShark_Queensland, mapping = aes(x =Area,y = NumberCaught,fill
   theme(legend.position = "none")
 
 ggplot(data= TigerShark_Queensland, mapping = aes( x = Area, y = NumberCaught, color = Area))+
-         geom_boxplot(fill = "steelblue") +
+         geom_boxplot(fill = "steelblue") + 
          labs(title = "Distribution of Tiger Sharks Caught in Queensland by Area", x = "Area", y = "Number Caught") +
          theme_minimal() +
          theme(legend.position = "none")
