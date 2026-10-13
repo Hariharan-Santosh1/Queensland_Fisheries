@@ -4,6 +4,7 @@ library(readr)
 library(readxl)
 library(dplyr)
 library(usethis)
+library(janitor)
 # This is all the packages we need for now 
 
 dataset1<- read_csv("data/Number_caught.csv")
@@ -34,8 +35,87 @@ TigerShark_dataset1_Townsville <- Overall_dataset1_Quantity_Townsville %>%
 TigerShark_2cities <- TigerShark_Queensland %>%
   filter(Area == "Townsville" | Area == "Cairns") %>%
   select(Year,Month,NumberCaught,BeachName,'Alive/Deceased',Area) 
+#------------------------------------------------------------------------------------#
+Deceased_overall<- dataset1 %>% clean_names() 
+# This code cleans the column names of the dataset1 
+ # by converting them to lowercase and replacing spaces with underscores.
 
+Species_Mammal <- Deceased_overall %>%
+  filter(alive_deceased == "Deceased" & species_group == "MAMMAL", 
+         gear %in% c("Net","Drum")) %>%
+  group_by(common_name,gear) %>%
+  summarise(Total_Deceased = sum(number_caught), 
+            .groups = "drop") %>%
+  pivot_wider(
+    names_from = gear,
+    values_from = Total_Deceased,
+    values_fill = list(Total_Deceased = 0)
+  ) %>%
+  mutate(Total_Deceased = Net + Drum) %>%
+  arrange(desc(Total_Deceased))
 
+# This code filters the Deceased_overall dataset 
+# to only include rows where the alive_deceased 
+# column is "Deceased" and 
+# the species_group column is "MAMMAL", 
+# and the gear column is either "Net" or "Drum". 
+# It then groups the data by common_name and gear, 
+# and calculates the total number of deceased individuals for each group. 
+# The data is then pivoted to create separate columns for Net and Drum, 
+# and a new column Total_Deceased is created by summing the values 
+#  the Net and Drum columns. Finally, the data is arranged in 
+# descending order based on Total_Deceased.
+
+#-------------------------------------------------------#
+Species_Turtle <- Deceased_overall %>%
+  filter(alive_deceased == "Deceased" & species_group == "TURTLE", 
+         gear %in% c("Net","Drum")) %>%
+  group_by(common_name,gear) %>%
+  summarise(Total_Deceased = sum(number_caught), 
+            .groups = "drop") %>%
+  pivot_wider(
+    names_from = gear,
+    values_from = Total_Deceased,
+    values_fill = list(Total_Deceased = 0)
+  ) %>%
+  mutate(Total_Deceased = Net + Drum) %>%
+  arrange(desc(Total_Deceased)) 
+#-# 
+
+Turtle_deaths <- Deceased_overall %>%
+filter(alive_deceased == "Deceased" & species_group == "TURTLE", 
+         gear %in% c("Net","Drum")) %>%
+  group_by(common_name,gear) %>%
+  summarise (Total_Deceased = sum(number_caught), 
+            .groups = "drop") 
+#-#
+ggplot(data = Turtle_deaths, mapping = aes(x = common_name, y = Total_Deceased, fill = gear)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Total Deceased Turtles by Gear Type", x = "Common Name", y = "Total Deceased") +
+  theme_light() +
+  theme(legend.position = "top", axis.text.x = element_text(angle = 45, hjust = 1)))
+
+# this code does the same just isolating turtle instead of mammals.
+#-------------------------------------------#
+Species_Sharks <- Deceased_overall %>%
+  filter(alive_deceased == "Deceased" & species_group == "SHARK", 
+         gear %in% c("Net","Drum")) %>%
+  group_by(common_name,gear) %>%
+  summarise(Total_Deceased = sum(number_caught), 
+            .groups = "drop") %>%
+  pivot_wider(
+    names_from = gear,
+    values_from = Total_Deceased,
+    values_fill = list(Total_Deceased = 0)
+  ) %>%
+  mutate(Total_Deceased = Net + Drum) %>%
+  arrange(desc(Total_Deceased))
+
+#-#
+Shark_deaths <- Deceased_overall %>%
+  filter
+
+#------------------------------------------------------------------------------------#
 Average_Queensland <- TigerShark_Queensland %>%
   rename(Alive_Deceased = 'Alive/Deceased') %>%
   group_by(Area,Year,Alive_Deceased) %>%
