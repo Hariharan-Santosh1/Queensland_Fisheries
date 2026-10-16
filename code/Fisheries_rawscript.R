@@ -184,3 +184,36 @@ ggplot (data = Percentage_longer,
 # The data is grouped by gear type and measure (Non-target animals that died per year
 # and Share of deaths that were not sharks (%)).
 #---------------------------------------------------------#
+Years_netted <- Cleaned %>%
+  filter(gear == "Net", year < 2026) %>%
+  group_by(area) %>%
+  summarise(years_netted = max(year) - min(year) + 1)
+
+Area_deaths <- Non_Target %>%
+  filter(gear == "Net", alive_deceased == "Deceased") %>%
+  group_by(area, species_group) %>%
+  summarise(deaths = sum(number_caught, na.rm = TRUE), .groups = "drop")
+
+Area_table <- Area_deaths %>%
+  left_join(Years_netted, by = "area") %>%
+  filter(years_netted >= 10) %>%
+  pivot_wider(names_from = species_group, values_from = deaths, values_fill = 0) %>%
+  mutate(Total = Mammal + Turtle + Other,
+         Deaths_per_year = round(Total / years_netted, 1)) %>%
+  arrange(desc(Total))
+
+ggplot(Area_, aes(x = reorder(area, deaths, sum), y = deaths, fill = group_label)) +
+  geom_col(width = 0.65) +
+  coord_flip() +
+  scale_fill_manual(values = group_colours) +
+  labs(
+    title    = "Where non-target animals die in shark nets",
+    subtitle = "Areas with 10 or more years of netting",
+    x = NULL,
+    y = "Non-target animals that died in shark nets, 1996-2025",
+    fill = NULL,
+    caption  = "Source: Queensland Fisheries QFISH Shark Control Program data."
+  ) +
+  theme_qfish() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(colour = "grey90"))
