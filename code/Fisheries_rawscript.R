@@ -6,7 +6,7 @@ library(dplyr)
 library(usethis)
 library(janitor)
 # This is all the packages we need for now 
-
+ # Queensland Fisheries - Shark Control Program (1996-2026)
 dataset1<- read_csv("data/Number_caught.csv")
 dataset1
 dataset2  <- read_csv("data/Biological_information.csv")
@@ -14,159 +14,173 @@ dataset2
 # This is the data we will be using for our analysis.
 # The first dataset contains information about the number of fish caught
 # The second dataset contains biological information about the fish.
-
-TigerShark_Queensland <- dataset1 %>%
-  filter(CommonName == "TIGER SHARK") %>%
-  select(Year,Month,NumberCaught,BeachName,'Alive/Deceased',Area) %>%
-  group_by(Year,Month,BeachName,Area) 
-# The code  filters the dataset1 to only include rows where the CommonName is "TIGER SHARK" and selects specific columns for analysis. It then groups the data by Year, Month, BeachName, and Area.
-  
-
-Overall_dataset1_Quantity_Townsville <- dataset1 %>%
-  filter (Area == "Townsville") %>%
-  select(Year,Month,CommonName,NumberCaught,BeachName,Area)
-# This code filters the dataset1 to only include rows where the Area is "Townsville" and selects specific columns for analysis.
-
-TigerShark_dataset1_Townsville <- Overall_dataset1_Quantity_Townsville %>%
-  filter (CommonName == "TIGER SHARK")%>%
-  select(Year,Month,CommonName,NumberCaught,BeachName,Area)
-# This code filters the Overall_dataset1_Quantity_Townsville to only include rows where the CommonName is "TIGER SHARK" and selects specific columns for analysis.
-
-TigerShark_2cities <- TigerShark_Queensland %>%
-  filter(Area == "Townsville" | Area == "Cairns") %>%
-  select(Year,Month,NumberCaught,BeachName,'Alive/Deceased',Area) 
-#------------------------------------------------------------------------------------#
-Deceased_overall<- dataset1 %>% clean_names() 
-# This code cleans the column names of the dataset1 
- # by converting them to lowercase and replacing spaces with underscores.
-
-Species_Mammal <- Deceased_overall %>%
-  filter(alive_deceased == "Deceased" & species_group == "MAMMAL", 
-         gear %in% c("Net","Drum")) %>%
-  group_by(common_name,gear) %>%
-  summarise(Total_Deceased = sum(number_caught), 
-            .groups = "drop") %>%
-  pivot_wider(
-    names_from = gear,
-    values_from = Total_Deceased,
-    values_fill = list(Total_Deceased = 0)
+#---------------------------------------------------------#
+Cleaned <- dataset1 %>%
+  clean_names()
+# Names of the columns have been cleaned to make them easier to work with.
+#---------------------------------------------------------#
+Non_Target <- Cleaned %>%
+   filter(species_group != "SHARK", gear %in% c("Net","Drum"),year < 2026 ) %>%
+  mutate(
+    number_caught = as.numeric(number_caught),
+    species_group = str_to_title(species_group),
+    gear = recode(gear, "Drum" = "Drumline"),
+    common_name = str_squish(str_remove(common_name,".\\*")),
   ) %>%
-  mutate(Total_Deceased = Net + Drum) %>%
-  arrange(desc(Total_Deceased))
+   select(year,area,gear,species_group,common_name,alive_deceased,number_caught) %>%
+   group_by(year,area,gear,species_group,common_name,alive_deceased) 
+# The Non_Target dataset contains information about the number 
+# of non-target species caught in the shark control program.
+#---------------------------------------------------------#
+Deaths_total <- Non_Target %>%
+  filter(alive_deceased == "Deceased") %>%
+  mutate(
+   Non_Shark_Groups = recode(species_group,
+                        Mammal = "Marine Mammals",
+                        Turtle = "Marine Turtles",
+                        Other = "Rays, fish and other species") ) %>%
+  group_by(Non_Shark_Groups,gear) %>%
+  summarise(total_deaths = sum(number_caught, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = gear, values_from = total_deaths, values_fill = 0) 
 
-# This code filters the Deceased_overall dataset 
-# to only include rows where the alive_deceased 
-# column is "Deceased" and 
-# the species_group column is "MAMMAL", 
-# and the gear column is either "Net" or "Drum". 
-# It then groups the data by common_name and gear, 
-# and calculates the total number of deceased individuals for each group. 
-# The data is then pivoted to create separate columns for Net and Drum, 
-# and a new column Total_Deceased is created by summing the values 
-#  the Net and Drum columns. Finally, the data is arranged in 
-# descending order based on Total_Deceased.
+ggplot(data = Deaths_total,
+       aes(x = Non_Shark_Groups, y = Net, fill = Non_Shark_Groups)) +
+  geom_col() +
+  geom_text(aes(label = Net), vjust = -0.5) +
+  scale_fill_manual(values = c("#534AB7", "#1D9E75", "#BA7517")) +
+  labs(
+    title    = "Total non-target animal deaths in the Shark Control Program, 1996-2025",
+    subtitle = "Deaths of animals other than sharks, by gear type and species group",
+    x        = NULL,
+    y        = "Number of Deceased Animals",
+    fill     = NULL,
+    caption  = "Source: Queensland Fisheries QFISH Shark Control Program data. Animals released alive are not counted."
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position      = "none",
+    plot.title           = element_text(face = "bold", size = rel(1.3)),
+    plot.title.position  = "plot",
+    plot.subtitle        = element_text(colour = "grey35", margin = margin(b = 10)),
+    plot.caption         = element_text(colour = "grey50", size = rel(0.75), hjust = 0),
+    panel.grid.minor     = element_blank(),
+    panel.grid.major.x   = element_blank()
+  )
+# the Deaths_yearly dataset contains information about the total 
+# number of deaths for each species group and gear type from 1996 to 2025. 
+# The data is grouped by species group and gear type,
+# and the total number of deaths is calculated for each group. 
+# The data is then pivoted to create a wider format, with separate columns for each gear type.
+#---------------------------------------------------------#
+Deaths_1995_to_2025 <- Non_Target %>%
+  filter(alive_deceased == "Deceased") %>%
+  mutate(
+    Non_Shark_Groups = recode(species_group,
+                              Mammal = "Marine Mammals",
+                              Turtle = "Marine Turtles",
+                              Other = "Rays, fish and other species") ) %>%
+  group_by(year,Non_Shark_Groups,gear) %>%
+  summarise(total_deaths = sum(number_caught, na.rm = TRUE), .groups = "drop") %>%
+  complete( year =  1996:2025, Non_Shark_Groups, gear, fill = list(total_deaths = 0))
 
-#-------------------------------------------------------#
-Species_Turtle <- Deceased_overall %>%
-  filter(alive_deceased == "Deceased" & species_group == "TURTLE", 
-         gear %in% c("Net","Drum")) %>%
-  group_by(common_name,gear) %>%
-  summarise(Total_Deceased = sum(number_caught), 
-            .groups = "drop") %>%
-  pivot_wider(
-    names_from = gear,
-    values_from = Total_Deceased,
-    values_fill = list(Total_Deceased = 0)
+ggplot(data = Deaths_1995_to_2025,
+       aes(x = year, y = total_deaths, color = Non_Shark_Groups)) +
+  geom_line(linewidth = 1, lineend = "round") +
+  geom_point(size = 1.8) +
+  facet_wrap(~ gear, labeller = as_labeller(c(Net = "Nets", Drumline = "Drumlines")),
+             scales = "free_y") +
+  scale_color_manual(values = c("#534AB7", "#1D9E75", "#BA7517")) +
+  scale_x_continuous(
+    breaks = c(1996,2006,2016,2025),
+    labels = c("1996","2006","2016","2025"),
+  ) +
+  labs(
+    title    = "Non-target animal deaths in the Shark Control Program, 1996-2025",
+    subtitle = "Deaths of animals other than sharks, by gear type and species group",
+    x        = "Year",
+    y        = "Number of Deceased Animals",
+    color    = NULL,
+    caption  = "Source: Queensland Fisheries QFISH Shark Control Program data. Animals released alive are not counted."
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position      = "top",
+    legend.justification = "left",
+    plot.title           = element_text(face = "bold", size = rel(1.3)),
+    plot.title.position  = "plot",
+    plot.subtitle        = element_text(colour = "grey35", margin = margin(b = 10)),
+    plot.caption         = element_text(colour = "grey50", size = rel(0.75), hjust = 0),
+    strip.text           = element_text(face = "bold", hjust = 0),
+    panel.grid.minor     = element_blank(),
+    panel.grid.major.x   = element_blank(),
+    panel.spacing        = unit(1.5, "lines")
+  )
+# The above code creates a line plot showing the number of non-target animal deaths in the Shark Control Program from 1996 to 2025.
+# The data is grouped by gear type (Nets and Drumlines) and species group (Marine Mammals, Marine Turtles, Rays, fish and other species).
+# The plot includes a title, subtitle, axis labels, and a caption indicating the source of the data. 
+# The theme is set to minimal with customizations for legend position, title formatting,
+# and panel spacing.
+#---------------------------------------------------------#
+Percentage_death <- Cleaned %>%
+  filter(alive_deceased == "Deceased",
+         gear %in% c("Net","Drum"),year < 2026 ) %>%
+  group_by(year,gear) %>%
+  mutate(
+    gear = recode(gear, "Drum" = "Drumline"),
+    target = if_else(species_group == "SHARK", "Target", "Non_Target"),
+    total_death = sum(number_caught, na.rm = TRUE)
   ) %>%
-  mutate(Total_Deceased = Net + Drum) %>%
-  arrange(desc(Total_Deceased)) 
-#-# 
+  group_by(year,gear,target,total_death) %>%
+  summarise(deaths = sum(number_caught, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = target, values_from = deaths, values_fill = 0) %>%
+  mutate( share = Non_Target/ (Target + Non_Target) * 100) 
 
-Turtle_deaths <- Deceased_overall %>%
-filter(alive_deceased == "Deceased" & species_group == "TURTLE", 
-         gear %in% c("Net","Drum")) %>%
-  group_by(common_name,gear) %>%
-  summarise (Total_Deceased = sum(number_caught), 
-            .groups = "drop") 
-#-#
-ggplot(data = Turtle_deaths, mapping = aes(x = common_name, y = Total_Deceased, fill = gear)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  labs(title = "Total Deceased Turtles by Gear Type", x = "Common Name", y = "Total Deceased") +
-  theme_light() +
-  theme(legend.position = "top", axis.text.x = element_text(angle = 45, hjust = 1)))
+Percentage_longer <- Percentage_death %>%
+  pivot_longer(cols = c(Non_Target, share), names_to = "measure", values_to = "Value") %>%
+  mutate(measure = recode(measure,
+                          Non_Target = "Non-target animals that died per year",
+                          share      = "Share of deaths that were not sharks (%)"))
 
-# this code does the same just isolating turtle instead of mammals.
-#-------------------------------------------#
-Species_Sharks <- Deceased_overall %>%
-  filter(alive_deceased == "Deceased" & species_group == "SHARK", 
-         gear %in% c("Net","Drum")) %>%
-  group_by(common_name,gear) %>%
-  summarise(Total_Deceased = sum(number_caught), 
-            .groups = "drop") %>%
-  pivot_wider(
-    names_from = gear,
-    values_from = Total_Deceased,
-    values_fill = list(Total_Deceased = 0)
-  ) %>%
-  mutate(Total_Deceased = Net + Drum) %>%
-  arrange(desc(Total_Deceased))
-
-#-#
-Shark_deaths <- Deceased_overall %>%
-  filter
-
-#------------------------------------------------------------------------------------#
-Average_Queensland <- TigerShark_Queensland %>%
-  rename(Alive_Deceased = 'Alive/Deceased') %>%
-  group_by(Area,Year,Alive_Deceased) %>%
-  summarise(AverageCaught = mean(NumberCaught), .groups = "drop")
-ggplot(data = Average_Queensland, mapping = 
-          aes(x = Area, y = AverageCaught, fill = Alive_Deceased)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  labs(title = "Average Number of Tiger Sharks Caught in Queensland by Area and Status", x = "Area", y = "Average Number Caught") +
-  theme_light() +
-  theme(legend.position = "top",axis.text.x = element_text(angle = 45, hjust = 1))
-
-
-
-ggplot(data = TigerShark_Queensland, mapping = aes(x =Area,y = NumberCaught,fill = Area )) +
-  geom_bar(stat = "identity") +
-  labs(title = "Number of Tiger Sharks Caught in Queensland by Area", x = "Area", y = "Number Caught") +
-  theme(legend.position = "none")
-
-ggplot(data= TigerShark_Queensland, mapping = aes( x = Area, y = NumberCaught, color = Area))+
-         geom_boxplot(fill = "steelblue") + 
-         labs(title = "Distribution of Tiger Sharks Caught in Queensland by Area", x = "Area", y = "Number Caught") +
-         theme_minimal() +
-         theme(legend.position = "none")
-
-
-
-
-
-# 22
-ggplot(data = TigerShark_dataset1_Townsville,mapping = aes(x =BeachName,y = NumberCaught,fill = BeachName )) +
-  geom_bar(stat = "identity",fill = "steelblue" ) +
-  labs(title = "Number of Tiger Sharks Caught in Townsville by Beach", x = "Beach Name", y = "Number Caught") +
-  theme_minimal() +
-  theme(legend.position = "none")
-  
-# This code creates a bar plot using ggplot2 to visualize the number of Tiger Sharks caught in Townsville by beach. The x-axis represents the month, the y-axis represents the number caught, and the bars are filled based on the beach name. The plot is faceted by beach name for better visualization. 
-
-TigerShark_dataset1_Townsville %>%
-  group_by(BeachName, Year) %>%
-  summarise(AvgCaught = mean(NumberCaught), .groups = "drop") %>%
-  ggplot(mapping = aes(x = Year, y = AvgCaught, colour = BeachName, group = BeachName)) +
-  geom_line() +
-  geom_point() +
-  labs(title = "Average Number of Tiger Sharks Caught per Year in Townsville by Beach",
-       x = "Year", y = "Average Number Caught") +
-  theme_minimal() +
-  theme(legend.position = "none")  
- 
-  
-
-Overall_dataset1_Quantity_Cairns <- dataset1 %>%
-  filter (Area == "Cairns") %>%
-  select(Year,Month,CommonName,NumberCaught,BeachName,Area)
-  
+ggplot (data = Percentage_longer,
+       aes(x = gear, y = Value, fill = gear)) +
+  geom_boxplot(width =0.5, alpha = 0.75, outlier.shape = NA) +
+  geom_jitter ( width = 0.12, alpha = 0.4) +
+  geom_text(data = Percentage_longer %>%
+              group_by(gear, measure) %>%
+              summarise(med = median(Value), .groups = "drop") %>%
+              mutate(label = if_else(str_detect(measure, "Share"),
+                                     paste0("Median: ", round(med, 1), "%"),
+                                     paste0("Median: ", round(med, 1)))),
+            aes(x = gear, y = med, label = label),
+            inherit.aes = FALSE,
+            nudge_x = 0.33, hjust = 0, size = 3.5, colour = "grey20") +
+  scale_x_discrete(labels = c(Net = "Nets", Drumline = "Drumlines")) +
+  scale_fill_manual(values = c(Net = "#534AB7", Drumline = "#1D9E75")) +
+  labs(
+    title    = "Nets kill far more non target animals than Drumlines",
+    subtitle = "Each point represents a year (1996-2025), Non-Target animals that died per year and the share of deaths that were not sharks (%)",
+    x        = NULL,
+    y        = NULL,
+    caption  = "Source: Queensland Fisheries QFISH Shark Control Program data. Animals released alive are not counted."
+  ) +
+  facet_wrap(~ measure, scales = "free_y") +
+  theme_minimal(base_size = 12)+
+  theme(legend.position = "none")+
+  theme(
+    legend.position      = "top",
+    legend.justification = "left",
+    plot.title           = element_text(face = "bold", size = rel(1.3)),
+    plot.title.position  = "plot",
+    plot.subtitle        = element_text(colour = "grey35", margin = margin(b = 10)),
+    plot.caption         = element_text(colour = "grey50", size = rel(0.75), hjust = 0),
+    strip.text           = element_text(face = "bold", hjust = 0),
+    panel.grid.minor     = element_blank(),
+    panel.grid.major.x   = element_blank(),
+    panel.spacing        = unit(1.5, "lines")
+  )
+# The above code creates a boxplot with jittered points to visualize 
+# the number of non-target animal deaths and the share of deaths that 
+# were not sharks for each gear type (Nets and Drumlines) from 1996 to 2025.
+# The data is grouped by gear type and measure (Non-target animals that died per year
+# and Share of deaths that were not sharks (%)).
+#---------------------------------------------------------#
