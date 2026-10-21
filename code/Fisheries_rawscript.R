@@ -4,8 +4,11 @@ library(readr)
 library(readxl)
 library(dplyr)
 library(usethis)
-library(janitor)
-# This is all the packages we need for now 
+library(janitor) # Janitor is a package that makes it easy to clean data in R. 
+# It has functions for cleaning column names, removing empty rows and columns, and more.
+
+# This is all the packages we need for now
+#---------------------------------------------------------#
  # Queensland Fisheries - Shark Control Program (1996-2026)
 dataset1<- read_csv("data/Number_caught.csv")
 dataset1
@@ -20,12 +23,14 @@ Cleaned <- dataset1 %>%
 # Names of the columns have been cleaned to make them easier to work with.
 #---------------------------------------------------------#
 Non_Target <- Cleaned %>%
-   filter(species_group != "SHARK", gear %in% c("Net","Drum"),year < 2026 ) %>%
+   filter(species_group != "SHARK", gear %in% c("Net","Drum"),year < 2026 ) %>% # Filter the data to 
+  # include only non-target species, gear types "Net" and "Drum", and years less than 2026
   mutate(
-    number_caught = as.numeric(number_caught),
-    species_group = str_to_title(species_group),
+    number_caught = as.numeric(number_caught), # Convert number_caught to numeric 
+    species_group = str_to_title(species_group), # Convert species_group to title case
     gear = recode(gear, "Drum" = "Drumline"),
-    common_name = str_squish(str_remove(common_name,".\\*")),
+    common_name = str_squish(str_remove(common_name,".\\*")), # Remove any text after the 
+    # first period in common_name and remove extra spaces
   ) %>%
    select(year,area,gear,species_group,common_name,alive_deceased,number_caught) %>%
    group_by(year,area,gear,species_group,common_name,alive_deceased) 
@@ -205,22 +210,25 @@ Area_table <- Area_deaths %>%
 
 ggplot(
   data = Area_table,
-  mapping = aes (x = area, y = deaths, fill = area) 
-)+
+  mapping = aes(x = Total, y = fct_reorder(area, Total), fill = area)
+) +
   geom_col() +
   geom_text(
-    aes(label = paste0(Total, "\n(", round(Deaths_per_year, 1), " per year)")),
-    vjust = -0.3, lineheight = 0.95
+    aes(label = paste0(Total, " (", Deaths_per_year, " per year)")),
+    hjust = -0.05, size = 3.5
   ) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.3))) +
   scale_fill_manual(values = c("#534AB7", "#1D9E75", "#BA7517", "#E69F00", "#F8766D",
                                "#000000")) +
   labs(
-    title    = "Total non-target animal deaths in the Shark Control Program, 1996-2025",
-    subtitle = "Deaths of animals other than sharks by area",
-    x        = NULL,
-    y        = "Number of Deceased Animals",
+    title    = "Total non-target animal deaths in nets, 1996-2025",
+    subtitle = "Deaths of animals other than sharks in shark nets, 
+    by area (areas netted for 10 or more years)",
+    x        = "Number of Deceased Animals",
+    y        = NULL,
     fill     = NULL,
-    caption  = "Source: Queensland Fisheries QFISH Shark Control Program data. Animals released alive are not counted."
+    caption  = "Source: Queensland Fisheries QFISH Shark Control Program data. 
+    Animals released alive are not counted."
   ) +
   theme_minimal(base_size = 12) +
   theme(
@@ -230,6 +238,6 @@ ggplot(
     plot.subtitle        = element_text(colour = "grey35", margin = margin(b = 10)),
     plot.caption         = element_text(colour = "grey50", size = rel(0.75), hjust = 0),
     panel.grid.minor     = element_blank(),
-    panel.grid.major.x   = element_blank()
+    panel.grid.major.y   = element_blank()
   )
   
