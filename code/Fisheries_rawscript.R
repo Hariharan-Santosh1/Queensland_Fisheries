@@ -70,7 +70,8 @@ ggplot(data = Deaths_total,
 # number of deaths for each species group and gear type from 1996 to 2025. 
 # The data is grouped by species group and gear type,
 # and the total number of deaths is calculated for each group. 
-# The data is then pivoted to create a wider format, with separate columns for each gear type.
+# The data is then pivoted to create a wider format, with separate columns 
+# for each gear type.
 #---------------------------------------------------------#
 Deaths_1995_to_2025 <- Non_Target %>%
   filter(alive_deceased == "Deceased") %>%
@@ -157,6 +158,7 @@ ggplot (data = Percentage_longer,
   scale_x_discrete(labels = c(Net = "Nets", Drumline = "Drumlines")) +
   scale_fill_manual(values = c(Net = "#534AB7", Drumline = "#1D9E75")) +
   labs(
+    fill = "Gear Type",
     title    = "Nets kill far more non target animals than Drumlines",
     subtitle = "Each point represents a year (1996-2025), Non-Target animals that died per year and the share of deaths that were not sharks (%)",
     x        = NULL,
@@ -191,15 +193,43 @@ Years_netted <- Cleaned %>%
 
 Area_deaths <- Non_Target %>%
   filter(gear == "Net", alive_deceased == "Deceased") %>%
-  group_by(area, species_group) %>%
-  summarise(deaths = sum(number_caught, na.rm = TRUE), .groups = "drop")
+  group_by(area) %>%
+  summarise(Total = sum(number_caught, na.rm = TRUE), .groups = "drop")
 
 Area_table <- Area_deaths %>%
   left_join(Years_netted, by = "area") %>%
   filter(years_netted >= 10) %>%
-  pivot_wider(names_from = species_group, values_from = deaths, values_fill = 0) %>%
-  mutate(Total = Mammal + Turtle + Other,
+  mutate(
          Deaths_per_year = round(Total / years_netted, 1)) %>%
-  arrange(desc(Total))
+  arrange(desc(Deaths_per_year))
 
-ggplot(data = Area_table, mapping = aes(x = reorder(area,)))
+ggplot(
+  data = Area_table,
+  mapping = aes (x = area, y = deaths, fill = area) 
+)+
+  geom_col() +
+  geom_text(
+    aes(label = paste0(Total, "\n(", round(Deaths_per_year, 1), " per year)")),
+    vjust = -0.3, lineheight = 0.95
+  ) +
+  scale_fill_manual(values = c("#534AB7", "#1D9E75", "#BA7517", "#E69F00", "#F8766D",
+                               "#000000")) +
+  labs(
+    title    = "Total non-target animal deaths in the Shark Control Program, 1996-2025",
+    subtitle = "Deaths of animals other than sharks by area",
+    x        = NULL,
+    y        = "Number of Deceased Animals",
+    fill     = NULL,
+    caption  = "Source: Queensland Fisheries QFISH Shark Control Program data. Animals released alive are not counted."
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position      = "none",
+    plot.title           = element_text(face = "bold", size = rel(1.3)),
+    plot.title.position  = "plot",
+    plot.subtitle        = element_text(colour = "grey35", margin = margin(b = 10)),
+    plot.caption         = element_text(colour = "grey50", size = rel(0.75), hjust = 0),
+    panel.grid.minor     = element_blank(),
+    panel.grid.major.x   = element_blank()
+  )
+  

@@ -1,0 +1,85 @@
+---
+title: "Non Target Animal Deaths in the Queensland Shark Control Program"
+author: "Hariharan Santosh"
+format: html
+editor: visual
+---
+
+## Background and Purpose 
+
+The Queensland Shark Control Program aims to reduce the risk of shark attacks in the state’s coastal waters (Department of Primary Industries \[DPI\], 2026). It began in 1962 after several fatal attacks and continues to use shark nets and drumlines (baited hooks) at beaches. The program records every animal caught and trials new tools, such as drones and catch alert drumlines. Its 2025 to 2029 management plan sets out how nets and drumlines will operate alongside new technology and community education (DPI, 2026).
+
+Nets and drumlines catch more than the sharks they are set for. The DPI (2024) notes that other marine animals, including whales, dolphins and turtles, are sometimes caught. To limit this, the program checks gear regularly, releases non-target animals alive where possible, uses drumlines instead of nets where it can, and uses sound devices (pingers) to deter whales and dolphins (DPI, 2024). Because release is only attempted whenever possible, some animals die in the gear. Knowing how many die, in which gear and in which areas helps managers see where these measures matter most, and it gives community groups a shared set of facts to discuss. In this note, sharks are treated as target animals, so “non-target” means any animal that is not a shark.
+
+## Data Source
+
+The data was obtain from Queensland Government's QFISH portal (<https://qfish.fisheries.qld.gov.au/> ), Shark Control Program section. The data was accessed on 5 October 2026 and saved as "Number_caught.csv".
+
+## Data Wrangling
+
+### Step 1  
+
+Initially we load the required packages and the dataset we are going to use and the function clean_name() was used to improve the column names making it easier to work with them.
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(readr)
+library(readxl)
+library(dplyr)
+library(usethis)
+library(janitor) # Janitor is a package that makes it easy to clean data in R. 
+# It has functions for cleaning column names, removing empty rows and columns, and more.
+
+# This is all the packages we need for now 
+#-------------------------------------------------------------------------#
+# Queensland Fisheries - Shark Control Program (1996-2026)
+dataset1<- read_csv("data/Number_caught.csv")
+dataset1
+# This is the data we will be using for our analysis.
+# The first dataset contains information about the number of fish caught
+#-------------------------------------------------------------------------#
+Cleaned <- dataset1 %>%
+  clean_names()
+# Names of the columns have been cleaned to make them easier to work with.
+```
+
+### Step 2
+
+This code builds the `Non_Target` dataset from the cleaned data. It keeps only non-shark species caught in nets or on drumlines before 2026. The number caught is converted to a numeric format, species names are standardised, and “Drum” is changed to “Drumline”. Extra text and spaces are removed from the common names. The data is then reduced to the relevant columns and grouped by year, area, fishing gear, species group, common name, and whether the animal was alive or dead. This gives a dataset ready for analysing non-target catches in Queensland’s Shark Control Program.
+
+```{r}
+Non_Target <- Cleaned %>%
+   filter(species_group != "SHARK", gear %in% c("Net","Drum"),year < 2026 ) %>% 
+  # Filter the data to include only non-target species,
+  # gear types "Net" and "Drum", and years less than 2026
+  mutate(
+    number_caught = as.numeric(number_caught), # Convert number_caught to numeric 
+    species_group = str_to_title(species_group), # Convert species_group to title case
+    gear = recode(gear, "Drum" = "Drumline"),
+    common_name = str_squish(str_remove(common_name,".\\*")), # Remove any text     after the 
+    # first period in common_name and remove extra spaces
+  ) %>%
+   select(year,area,gear,species_group,common_name,alive_deceased,number_caught) %>%
+   group_by(year,area,gear,species_group,common_name,alive_deceased) 
+# The Non_Target dataset contains information about the number 
+# of non-target species caught in the shark control program.
+```
+
+### Step 3 
+
+Now we prepare the targetted tables for each of the questions we have
+
+```{r}
+Deaths_1995_to_2025 <- Non_Target %>%
+  filter(alive_deceased == "Deceased") %>%
+  mutate(
+    Non_Shark_Groups = recode(species_group,
+                              Mammal = "Marine Mammals",
+                              Turtle = "Marine Turtles",
+                              Other = "Rays, fish and other species") ) %>%
+  group_by(year,Non_Shark_Groups,gear) %>%
+  summarise(total_deaths = sum(number_caught, na.rm = TRUE), .groups = "drop") %>%
+  complete( year =  1996:2025, Non_Shark_Groups, gear, fill = list(total_deaths = 0))
+
+```
