@@ -202,18 +202,4 @@ Area_table <- Area_deaths %>%
          Deaths_per_year = round(Total / years_netted, 1)) %>%
   arrange(desc(Total))
 
-ggplot(Area_, aes(x = reorder(area, deaths, sum), y = deaths, fill = group_label)) +
-  geom_col(width = 0.65) +
-  coord_flip() +
-  scale_fill_manual(values = group_colours) +
-  labs(
-    title    = "Where non-target animals die in shark nets",
-    subtitle = "Areas with 10 or more years of netting",
-    x = NULL,
-    y = "Non-target animals that died in shark nets, 1996-2025",
-    fill = NULL,
-    caption  = "Source: Queensland Fisheries QFISH Shark Control Program data."
-  ) +
-  theme_qfish() +
-  theme(panel.grid.major.y = element_blank(),
-        panel.grid.major.x = element_line(colour = "grey90"))
+ggplot(data = Area_table, mapping = aes(x = reorder(area,)))
