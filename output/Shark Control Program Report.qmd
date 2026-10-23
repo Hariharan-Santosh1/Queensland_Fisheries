@@ -5,11 +5,21 @@ format: html
 editor: visual
 ---
 
-## Background and Purpose 
+## Background and Purpose
 
 The Queensland Shark Control Program aims to reduce the risk of shark attacks in the state’s coastal waters (Department of Primary Industries \[DPI\], 2026). It began in 1962 after several fatal attacks and continues to use shark nets and drumlines (baited hooks) at beaches. The program records every animal caught and trials new tools, such as drones and catch alert drumlines. Its 2025 to 2029 management plan sets out how nets and drumlines will operate alongside new technology and community education (DPI, 2026).
 
 Nets and drumlines catch more than the sharks they are set for. The DPI (2024) notes that other marine animals, including whales, dolphins and turtles, are sometimes caught. To limit this, the program checks gear regularly, releases non-target animals alive where possible, uses drumlines instead of nets where it can, and uses sound devices (pingers) to deter whales and dolphins (DPI, 2024). Because release is only attempted whenever possible, some animals die in the gear. Knowing how many die, in which gear and in which areas helps managers see where these measures matter most, and it gives community groups a shared set of facts to discuss. In this note, sharks are treated as target animals, so “non-target” means any animal that is not a shark.
+
+**This brief asks and answers these four questions:**
+
+- How many non-target animals die in the program ?
+
+- Which species groups are affected the most and the number of deaths year to year?
+
+- Which gear is responsible ?
+
+- Where are the deaths concentrated?
 
 ## Data Source
 
@@ -17,9 +27,9 @@ The data was obtain from Queensland Government's QFISH portal (<https://qfish.fi
 
 ## Data Wrangling
 
-### Step 1  
+### Step 1
 
-Initially we load the required packages and the dataset we are going to use and the function clean_name() was used to improve the column names making it easier to work with them.
+Initially we load the required packages and the data we are going to use and the function clean_name() was used to improve the column names making it easier to work with them.
 
 ```{r}
 library(tidyverse)
@@ -33,11 +43,11 @@ library(janitor) # Janitor is a package that makes it easy to clean data in R.
 
 # This is all the packages we need for now 
 #-------------------------------------------------------------------------#
-# Queensland Fisheries - Shark Control Program (1996-2026)
-dataset1<- read_csv("data/Number_caught.csv")
+# Queensland Fisheries - Shark Control Program (1996-2025)
+dataset1<- read_csv("../data/Number_caught.csv")
 dataset1
 # This is the data we will be using for our analysis.
-# The first dataset contains information about the number of fish caught
+# The first dataset contains information about the number of animals caught
 #-------------------------------------------------------------------------#
 Cleaned <- dataset1 %>%
   clean_names()
@@ -46,7 +56,7 @@ Cleaned <- dataset1 %>%
 
 ### Step 2
 
-This code builds the `Non_Target` dataset from the cleaned data. It keeps only non-shark species caught in nets or on drumlines before 2026. The number caught is converted to a numeric format, species names are standardised, and “Drum” is changed to “Drumline”. Extra text and spaces are removed from the common names. The data is then reduced to the relevant columns and grouped by year, area, fishing gear, species group, common name, and whether the animal was alive or dead. This gives a dataset ready for analysing non-target catches in Queensland’s Shark Control Program.
+This code builds the 'Non_Target' data frame from the cleaned data. It keeps only non-shark species caught in nets or on drumlines before 2026. The number caught is converted to a numeric format, species names are standardised, and “Drum” is changed to “Drumline”. Extra text and spaces are removed from the common names. The data is then reduced to the relevant columns and grouped by year, area, fishing gear, species group, common name, and whether the animal was alive or dead. This gives a dataset ready for analysing non-target catches.
 
 ```{r}
 Non_Target <- Cleaned %>%
@@ -66,20 +76,339 @@ Non_Target <- Cleaned %>%
 # of non-target species caught in the shark control program.
 ```
 
-### Step 3 
+### Step 3
 
-Now we prepare the targetted tables for each of the questions we have
+It uses the 'Non_Target' data frame to build summary tables specific to the research question. The resulting tables show how non target catches differ across these groups and how they change over time. They also feed directly into the charts that follow.
+
+#### How many non-target animals die in the program ?
+
+This code answers that question by creating Deaths_total table from the Non_Target data frame. It keeps only the animals that died, then renames the species groups into three clearer categories: Marine Mammals, Marine Turtles, and Rays, fish and other species. The deaths are then added up for each category and gear type, ignoring any missing values. Finally, the table is reshaped so Net and Drumline each have their own column, with zero filling any empty combination. The result has one row per species group, with the deaths for each gear side by side. The first bar chart uses this table.
 
 ```{r}
-Deaths_1995_to_2025 <- Non_Target %>%
-  filter(alive_deceased == "Deceased") %>%
+Deaths_total <- Non_Target %>%
+  filter(alive_deceased == "Deceased") %>% # Filter the data to include only deceased animals
   mutate(
-    Non_Shark_Groups = recode(species_group,
+   Non_Shark_Groups = recode(species_group,
+                        Mammal = "Marine Mammals",
+                        Turtle = "Marine Turtles",
+                        Other = "Rays, fish and other species") ) %>% # Create a new column called 
+  #Non_Shark_Groups that  groups species into three categories
+  group_by(Non_Shark_Groups,gear) %>%
+  summarise(total_deaths = sum(number_caught, na.rm = TRUE), .groups = "drop") %>% # Summarise the data 
+  # to get the total number of deaths for each Non_Shark_Group and gear type also 
+  #removes any missing values in the number_caught column and drops the grouping structure after summarising
+  pivot_wider(names_from = gear, values_from = total_deaths, values_fill = 0) # Pivot the data to create
+# a wider format, with separate columns for each gear type 
+```
+
+#### *Which species group is are affected  the most and the number of deaths year to year ?*
+
+Here we calculates the yearly deaths of non-target animals from 1996 to 2025, split into three categories: marine mammals, marine turtles, and rays, fish and other species. It first keeps only the animals that died, so the analysis focuses on recorded deaths. A new column, Non_Shark_Groups, combines species into these broader categories to make the results easier to compare. The deaths are then totalled for each year, category, and gear type, ignoring missing values. Finally, complete() makes sure every year, category, and gear combination appears, with zero filling any that have no records. This keeps the graphs consistent and makes changes over time easier to see, including years with no deaths for a particular group.
+
+```{r}
+Deaths_1996_to_2025 <- Non_Target %>%
+  filter(alive_deceased == "Deceased") %>% # Filter the data to include only deceased animals
+  mutate(
+    Non_Shark_Groups = recode(species_group, # Create a new column called Non_Shark_Groups 
+                              # that groups species into three categories
                               Mammal = "Marine Mammals",
                               Turtle = "Marine Turtles",
                               Other = "Rays, fish and other species") ) %>%
-  group_by(year,Non_Shark_Groups,gear) %>%
+  group_by(year,Non_Shark_Groups,gear) %>% # Group the data by year, Non_Shark_Groups, and gear type
   summarise(total_deaths = sum(number_caught, na.rm = TRUE), .groups = "drop") %>%
-  complete( year =  1996:2025, Non_Shark_Groups, gear, fill = list(total_deaths = 0))
-
+  complete( year =  1996:2025, Non_Shark_Groups, gear, fill = list(total_deaths = 0)) # this line of code creates a complete 
+# dataset with all combinations of year, Non_Shark_Groups, and gear, 
+# filling in any missing values with 0 for total_deaths.
+# This ensures that the plot will show all years and groups,
+# even if there were no deaths recorded for some combinations.
 ```
+
+#### *Which gear is responsible ?*
+
+This table is created by analyzing how many non-target animals died each year and what share of all deaths they made up, for both nets and drumlines. The data is first filtered to animals that died before 2026 in either gear, so the analysis focuses on recorded deaths. Records are grouped by year and gear, and “Drum” is renamed “Drumline” for clearer labels. Sharks are classed as target species and all other animals as non-target, and the deaths are totalled for each year, gear, and category, ignoring missing values. The table is then reshaped so target and non-target deaths have their own columns, with zero filling any gaps, which allows the percentage of deaths involving non-target animals to be calculated. Finally, the data is reshaped into a longer format and the measures are given descriptive labels. This prepares it for comparing yearly non-target deaths and their share of all deaths across the two gear types, to show how the Shark Control Program affects animals other than sharks*.*
+
+```{r}
+Percentage_death <- Cleaned %>%
+  filter(alive_deceased == "Deceased",
+         gear %in% c("Net","Drum"),year < 2026 ) %>% # Filter the data to include only deceased animals,
+  # gear types "Net" and "Drum", and years less than 2026
+  group_by(year,gear) %>%
+  mutate(
+    gear = recode(gear, "Drum" = "Drumline"), # Recode the gear column to change "Drum" to "Drumline"
+    target = if_else(species_group == "SHARK", "Target", "Non_Target"), # Create a new column called target 
+    # that indicates whether the species is a target species (shark) or a non-target species
+    total_death = sum(number_caught, na.rm = TRUE) # Calculate the total number of deaths for each 
+    # year and gear type
+  ) %>%
+  group_by(year,gear,target,total_death) %>%
+  summarise(deaths = sum(number_caught, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = target, values_from = deaths, values_fill = 0) %>% # Pivot the data to create a
+  # wider format, with separate columns for Target and Non_Target deaths
+  mutate( share = Non_Target/ (Target + Non_Target) * 100) # Calculate the share of deaths that
+# were not sharks as a percentage of total deaths
+
+Percentage_longer <- Percentage_death %>%
+  pivot_longer(cols = c(Non_Target, share), names_to = "measure", values_to = "Value") %>% # Pivot the data 
+  # to create a longer format, with separate rows for Non_Target 
+  # deaths and share of deaths that were not sharks
+  mutate(measure = recode(measure, # Recode the measure column to provide more 
+                          # descriptive labels for the two measures
+                          Non_Target = "Non-target animals that died per year",
+                          share      = "Share of deaths that were not sharks (%)")) # Recode the measure column
+# to provide more descriptive labels for the two measures
+```
+
+#### *Where are the deaths concentrated?*
+
+To identify the concentration of deaths of non target animals we initially identify the areas with the highest average yearly deaths of non-target animals in nets. Only nets are analysed because they cause more deaths than drumlines, so the focus is on their impact. Years_netted estimates how long each area was netted by subtracting its earliest recorded year from its latest and adding one, using records before 2026. Area_deaths totals the non-target animals that died in nets in each area, ignoring missing values. The two tables are joined by area name, and areas netted for fewer than 10 years are removed, because short periods give too little information for a fair comparison with long-running areas. Total deaths are then divided by the estimated years netted to give an average per year, rounded to one decimal place, and the areas are ranked from highest to lowest. The table allows areas with different netting histories to be compared on the same basis.
+
+```{r}
+Years_netted <- Cleaned %>% # Create a new dataset called Years_netted that contains 
+  # the number of years each area was netted
+  filter(gear == "Net", year < 2026) %>% # Filter the data to include only netted areas 
+  # and years less than 2026
+  group_by(area) %>%
+  summarise(years_netted = max(year) - min(year) + 1) # Calculate the number of years each
+# area was netted by subtracting the minimum year from the maximum year and adding 1
+
+Area_deaths <- Non_Target %>% 
+  filter(gear == "Net", alive_deceased == "Deceased") %>% # Filter the data to include only
+  # netted areas and deceased animals
+  group_by(area) %>%
+  summarise(Total = sum(number_caught, na.rm = TRUE), .groups = "drop") # Calculate the total number of 
+# deaths for each area by summing the number_caught column and removing any missing values
+
+Area_table <- Area_deaths %>%
+  left_join(Years_netted, by = "area") %>% # Join the Area_deaths dataset with the 
+  # Years_netted dataset by area
+  filter(years_netted >= 10) %>% # Filter the data to include only areas 
+  # that were netted for 10 or more years 
+  mutate(
+         Deaths_per_year = round(Total / years_netted, 1)) %>% # Calculate the average number
+  # of deaths per year for each area
+  arrange(desc(Deaths_per_year)) # Arrange the data in descending order of Deaths_per_year
+```
+
+## *Visualizing the data* 
+
+#### *How many non-target animals die in the program ?*
+
+```{r}
+ plot1 <- ggplot(data = Deaths_total,
+       aes(x = Non_Shark_Groups, y = Net, fill = Non_Shark_Groups)) + # Create a bar plot of the 
+  # total number of deaths for each Non_Shark_Group and gear type
+  geom_col() +
+  geom_text(aes(label = Net), vjust = -0.5) + # Add text labels to the bars showing the 
+  # total number of deaths for each Non_Shark_Group and gear type
+  scale_fill_manual(values = c("#534AB7", "#1D9E75", "#BA7517")) + # Set the fill colors for the bars
+  labs(
+    title    = "Total non-target animal deaths in the Shark Control Program, 1996-2025",
+    subtitle = "Deaths of animals other than sharks, by gear type and species group",
+    x        = NULL,
+    y        = "Number of Deceased Animals",
+    fill     = NULL,
+    caption  = "Source: Queensland Fisheries QFISH Shark Control Program data. Animals released alive are not counted."
+  ) +
+  theme_minimal(base_size = 12) + # Set the theme to minimal with a base font size of 12
+  theme(
+    legend.position      = "none",
+    plot.title           = element_text(face = "bold", size = rel(1.3)), # Set the title to bold and
+    # increase the font size
+    plot.title.position  = "plot", # Set the title position to the top of the plot
+    plot.subtitle        = element_text(colour = "grey35", margin = margin(b = 10)), # Set the subtitle color 
+    # to grey and add a margin below it
+    plot.caption         = element_text(colour = "grey50", size = rel(0.75), hjust = 0), # Set the caption color
+    # to grey, decrease the font size, and left-align it
+    panel.grid.minor     = element_blank(), # Remove the minor grid lines from the plot
+    panel.grid.major.x   = element_blank() # Remove the major grid lines from the x-axis of the plot
+  )
+ggsave ("Figures/Total_Non_Target_Deaths.png",
+        plot1, width = 9, height = 6,dpi = 400)
+```
+
+![*Figure 1 shows the total non-target animal deaths in the Queensland Shark Control Program, 1996-2025, by species group. Each bar shows how many animals other than sharks were recorded as dead, with the count above it. Animals released alive are not included. Rays, fish and other species account for most of the deaths, with 1,286 animals, about 72.5% of the 1,773 non-target deaths shown. Marine mammals follow with 377 deaths (21.3%), and marine turtles have the fewest with 110 (6.2%). The “rays, fish and other species” group covers every non-target animal that is not a mammal or a turtle, so the chart cannot show which species make up that total.*](Figures/Total_Non_Target_Deaths.png)
+
+#### *Which species group is are affected  the most and the number of deaths year to year ?*
+
+```{r}
+plot2 <- ggplot(data = Deaths_1996_to_2025,
+       aes(x = year, y = total_deaths, color = Non_Shark_Groups)) +
+  geom_line(linewidth = 1, lineend = "round") + # Add a line plot to show the trend of total 
+  # deaths over time for each Non_Shark_Group
+  geom_point(size = 1.8) + # Add points to the line plot to show the 
+  # total deaths for each year and Non_Shark_Group
+  facet_wrap(~ gear, labeller = as_labeller(c(Net = "Nets", Drumline = "Drumlines")), # Create separate plots for 
+             # each gear type (Nets and Drumlines) with custom labels
+             scales = "free_y") +
+  scale_color_manual(values = c("#534AB7", "#1D9E75", "#BA7517")) + # Set the colors for each Non_Shark_Group
+  scale_x_continuous(
+    breaks = c(1996,2006,2016,2025), # Set the x-axis breaks to show only the years 
+    # 1996, 2006, 2016, and 2025
+    labels = c("1996","2006","2016","2025"),# Set the x-axis labels to show
+    # only the years 1996, 2006, 2016, and 2025
+  ) +
+  labs(
+    title    = "Non-target animal deaths in the Shark Control Program from 1996-2025",
+    subtitle = "Deaths of animals other than sharks, by gear type and species group",
+    x        = "Year",
+    y        = "Number of Deceased Animals",
+    color    = NULL,
+    caption  = "Source: Queensland Fisheries QFISH Shark Control Program data. Animals released alive are not counted."
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position      = "top",
+    legend.justification = "left",
+    plot.title           = element_text(face = "bold", size = rel(1.3)), # Set the title to bold 
+    # and increase the font size
+    plot.title.position  = "plot",
+    plot.subtitle        = element_text(colour = "grey35", margin = margin(b = 10)), # Set the subtitle color 
+    # to grey and add a margin below it
+    plot.caption         = element_text(colour = "grey50", size = rel(0.75), hjust = 0),# Set the caption color to grey
+    # and decrease the font size, and left-align it
+    strip.text           = element_text(face = "bold", hjust = 0), # Set the facet labels to bold and left-align them
+    panel.grid.minor     = element_blank(), # Remove the minor grid lines from the plot
+    panel.grid.major.x   = element_blank(),# Remove the major grid lines from the x-axis of the plot
+    panel.spacing        = unit(1.5, "lines") # Set the spacing between the facets to 1.5 lines
+  )
+ggsave("Figures/Year_to_Year_death_for_gear_types.png",plot2,
+       width = 11, height = 8,dpi = 400 )
+# The above code creates a line plot showing the number of non-target animal deaths in the Shark Control Program from 1996 to 2025.
+# The data is grouped by gear type (Nets and Drumlines) and species group (Marine Mammals, Marine Turtles, Rays, fish and other species).
+# The plot includes a title, subtitle, axis labels, and a caption indicating the source of the data. 
+# The theme is set to minimal with customizations for legend position, title formatting,
+# and panel spacing.
+```
+
+![*Figure 2 shows yearly deaths of non-target animals in the Queensland Shark Control Program, 1996-2025, for drumlines (left) and nets (right), split into marine mammals, marine turtles, and rays, fish and other species. Each point is the number of animals recorded as dead that year, and animals released alive are not counted. The two panels use different vertical scales (up to about 33 deaths for drumlines and 68 for nets), so line heights should not be compared between them. Rays, fish and other species have the highest counts on both gears in almost every year, but the numbers swing widely. On nets they range from about 13 to 68 a year, and on drumlines they peak at about 33 in 2025. Marine mammal deaths occur mainly in nets, at roughly 4 to 25 a year, with a peak around 2008 and a rise again to about 17 by 2025. On drumlines they are zero or one in nearly every year. Marine turtle deaths are low on both gears, apart from a brief spike on drumlines between 2019 and 2021 of about 10 to 15 a year. No group shows a steady long-term rise or fall. The main pattern is high variability from year to year, with occasional spikes.*](Figures/Year_to_Year_death_for_gear_types.png)
+
+#### Which gear is responsible? 
+
+```{r}
+plot3 <- ggplot (data = Percentage_longer,
+       aes(x = gear, y = Value, fill = gear)) +
+  geom_boxplot(width =0.5, alpha = 0.75, outlier.shape = NA) + # Create a boxplot to show the 
+  # distribution of Non_Target deaths and share of deaths that were not sharks for each gear type
+  geom_jitter ( width = 0.12, alpha = 0.4) + # Add jittered points to the boxplot to show 
+  # the individual data points for each gear type
+  geom_text(data = Percentage_longer %>% # Add text labels to the plot to show the median values 
+              # for each gear type and measure
+              group_by(gear, measure) %>%
+              summarise(med = median(Value), .groups = "drop") %>% # Calculate the median value for each gear 
+              # type and measure
+              mutate(label = if_else(str_detect(measure, "Share"),
+                                     paste0("Median: ", round(med, 1), "%"), # Create a label for the median
+                                     #value that includes a percentage sign if 
+                                     # the measure is "Share of deaths that were not sharks (%)"
+                                     paste0("Median: ", round(med, 1)))), # Create a label for the median value 
+            #that does not include a percentage sign if the measure is "Non-target animals that died per year"
+            aes(x = gear, y = med, label = label),
+            inherit.aes = FALSE, # Do not inherit the aesthetics from the main ggplot call
+            nudge_x = 0.33, hjust = 0, size = 3.5, colour = "grey20") + # Nudge the text labels to the right, 
+  # left-align them, set the font size and color
+  scale_x_discrete(labels = c(Net = "Nets", Drumline = "Drumlines")) + # Set the x-axis labels to show 
+  # "Nets" and "Drumlines" instead of "Net" and "Drumline"
+  scale_fill_manual(values = c(Net = "#534AB7", Drumline = "#1D9E75")) + # Set the fill colors for the boxplots 
+  # to match the colors used in the previous plots 
+  labs(
+    fill = "Gear Type",
+    title    = "Nets kill far more non target animals than Drumlines",
+    subtitle = "Each point represents a year (1996-2025), Non-Target animals that died per year and the share of deaths that were not sharks (%)",
+    x        = NULL,
+    y        = NULL,
+    caption  = "Source: Queensland Fisheries QFISH Shark Control Program data. Animals released alive are not counted."
+  ) +
+  facet_wrap(~ measure, scales = "free_y") + # Create separate plots for each measure
+  # (Non-target animals that died per year and Share of deaths that were not sharks (%)) with free y-axis scales
+  theme_minimal(base_size = 12)+
+  theme(legend.position = "none")+
+  theme(
+    legend.position      = "top",
+    legend.justification = "left",
+    plot.title           = element_text(face = "bold", size = rel(1.3)), # Set the title to bold and 
+    # increase the font size
+    plot.title.position  = "plot", 
+    plot.subtitle        = element_text(colour = "grey35", margin = margin(b = 10)), # Set the subtitle color
+    # to grey and add a margin below it
+    plot.caption         = element_text(colour = "grey50", size = rel(0.75), hjust = 0), # Set the caption color to 
+    # grey, decrease the font size, and left-align it
+    strip.text           = element_text(face = "bold", hjust = 0), # Set the facet labels to bold and left-align them
+    panel.grid.minor     = element_blank(), # Remove the minor grid lines from the plot
+    panel.grid.major.x   = element_blank(), # Remove the major grid lines from the x-axis of the plot
+    panel.spacing        = unit(1, "lines") # Set the spacing between the facets to 1.0
+```
+
+![*Figure 3 reveals the non-target animal deaths in nets and drumlines in the Queensland Shark Control Program, 1996-2025. The left panel shows how many non-target animals died each year, and the right panel shows what share of all recorded deaths they made up. Each point is one year, each box covers the middle half of the years, and the thick line marks the median. Animals released alive are not counted. Nets caused far more non-target deaths than drumlines, with a median of 61 animals a year against 12. Non-target animals also made up a bigger share of net deaths, with a median of 31% compared with 3% on drumlines. Almost no years overlap between the two gears on either measure, so the gap holds across the whole period. In a typical year, about one in three animals killed in nets is not a shark.* ](Figures/Percentage_of_gear_based_death.png)
+
+#### *Where are the deaths concentrated?*
+
+```{r}
+plot4 <- ggplot(
+  data = Area_table,
+  mapping = aes(x = Total, y = fct_reorder(area, Total), fill = area) # Create a horizontal bar plot 
+  # to show the total number of deaths for each area,
+) +
+  geom_col() +
+  geom_text(
+    aes(label = paste0(Total, " (", Deaths_per_year, " per year)")), # Add text labels to the bars 
+    # showing the total number of deaths and the average number of deaths per year for each area
+    hjust = -0.05, size = 3.5 # Nudge the text labels to the right and set the font size
+  ) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.3))) + # Expand the x-axis to add some space 
+  # to the right of the bars for the text labels
+  scale_fill_manual(values = c("#534AB7", "#1D9E75", "#BA7517", "#E69F00", "#F8766D",
+                               "#000000")) + # Set the fill colors for the bars to match the 
+  # colors used in the previous plots
+  labs(
+    title    = "Total non-target animal deaths in nets from 1996-2025",
+    subtitle = "Deaths of animals other than sharks in shark nets, 
+    by area (areas netted for 10 or more years)",
+    x        = "Number of Deceased Animals",
+    y        = NULL,
+    fill     = NULL,
+    caption  = "Source: Queensland Fisheries QFISH Shark Control Program data. 
+    Animals released alive are not counted."
+  ) +
+  theme_minimal(base_size = 12) + # Set the theme to minimal with a base font size of 12
+  theme(
+    legend.position      = "none",
+    plot.title           = element_text(face = "bold", size = rel(1.3)), # Set the title to bold and 
+    # increase the font size
+    plot.title.position  = "plot",
+    plot.subtitle        = element_text(colour = "grey35", margin = margin(b = 10)), # Set the subtitle
+    #color to grey and add a margin below it
+    plot.caption         = element_text(colour = "grey50", size = rel(0.75), hjust = 0),# Set the caption color 
+    # to grey, decrease the font size, and left-align it
+    panel.grid.minor     = element_blank(), # Remove the minor grid lines from the plot
+    panel.grid.major.y   = element_blank() # Remove the major grid lines from the y-axis of the plot
+  )
+ggsave("Figures/Area_Concentrated.png", plot4, height = 7, width = 9, dpi = 400)
+```
+
+![*Figure 4 reveals the total non-target animal deaths in shark nets by area, 1996-2025, for the six areas netted for at least 10 years. Each bar shows how many animals other than sharks were recorded as dead, with the yearly average in brackets. Animals released alive are not counted. Deaths are concentrated in a few areas. The Gold Coast recorded the most, with 570 deaths (about 19 a year), followed by Sunshine Coast North with 435 (14.5 a year). Together these two account for about 57% of the deaths across the six areas. Rainbow Beach comes next with 289 (9.6 a year), while Sunshine Coast South, Mackay and Cairns each recorded between about 150 and 170. Cairns has the lowest total but the fourth-highest yearly average, at 8.4 a year, ahead of Sunshine Coast South and Mackay, because nets there were used for fewer years.*](Figures/Area_Concentrated.png)
+
+## Discussion 
+
+This analysis looked at recorded non-target animal deaths in Queensland’s Shark Control Program between 1996 and 2025. In total, 2,206 non-target animals were recorded as dead, and the impact was not spread evenly across species groups, gear types or areas.
+
+Rays, fish and other species made up the largest share of deaths (1,286), followed by marine mammals (377) and marine turtles (110). Because the first group combines many species, the results cannot show which ones are hit hardest. Species-level analysis would help identify vulnerable animals and guide more targeted management.
+
+Nets were linked to about 80% of all non-target deaths, with a median of 61 deaths a year compared with 12 for drumlines. Non-target animals also made up a larger share of deaths in nets (median of about 31%) than on drumlines (about 3%). This fits with the program’s use of drumlines in place of nets where possible. However, these are recorded totals, not rates per device or per unit of effort. The number of devices, where they are set, how long they operate and their catch rates may all contribute, so the results show differences in recorded impact but not the relative risk of each device.
+
+Yearly deaths varied considerably, with no consistent long-term rise or fall across groups. Occasional spikes, such as the rise in turtle deaths on drumlines between 2019 and 2021, show why each group and gear type needs monitoring over time. The data do not explain these changes. Environmental conditions, animal movements or fishing effort may play a role, but that would need further evidence.
+
+Among netted areas, the Gold Coast and Sunshine Coast North together accounted for about 57% of recorded deaths across the six areas netted for at least ten years. These areas may deserve particular attention in future monitoring. Higher totals do not necessarily mean a higher risk to individual animals, since they could reflect more nets, longer operation or local wildlife abundance. Comparing deaths with netting effort and animal populations would give a clearer picture.
+
+Several limitations apply. Only animals recorded as dead are counted, so animals released alive and the wider effects of capture are not captured. Yearly totals do not account for fishing effort. The broad “rays, fish and other species” group limits species-specific conclusions. Netting duration was estimated from the first and last recorded years, so areas with gaps may have their duration overstated, which would understate their average yearly deaths.
+
+Overall, the analysis gives a useful overview of recorded non-target deaths across species groups, gear types and areas. It supports continued monitoring, and future work should include fishing effort, species-level records and more detail on how long and how intensively nets were used. That would show whether the differences come from the gear, the intensity of operations or local conditions, and give a stronger basis for evaluating management.
+
+## Future Action 
+
+- Expand the use of drumlines as they are more practical and safe, replace nets with drumlines, since drumlines were linked to far fewer non-target deaths in these records.
+
+-  Evaluate new tools by assessing whether measures such as pingers, drones and catch alert drumlines reduce non-target deaths, particularly in nets.
+
+-  Focus on high-risk areas through monitoring the Gold Coast and Sunshine Coast North more closely, and compare their deaths with local wildlife populations and reevaluate usage of nets within those areas.
+
+-  Investigate the spikes by looking into the causes of unusual rises, such as the turtle deaths on drumlines in 2019-2021, using environmental and operational records
