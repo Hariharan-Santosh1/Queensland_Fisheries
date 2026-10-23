@@ -7,7 +7,7 @@ editor: visual
 
 ## Background and Purpose
 
-The Queensland Shark Control Program aims to reduce the risk of shark attacks in the state’s coastal waters (Department of Primary Industries \[DPI\], 2026). It began in 1962 after several fatal attacks and continues to use shark nets and drumlines (baited hooks) at beaches. The program records every animal caught and trials new tools, such as drones and catch alert drumlines. Its 2025 to 2029 management plan sets out how nets and drumlines will operate alongside new technology and community education (DPI, 2026).
+The Queensland Shark Control Program aims to reduce the risk of shark attacks in the state’s coastal waters (Department of Primary Industries \[DPI\], 2025). It began in 1962 after several fatal attacks and continues to use shark nets and drumlines (baited hooks) at beaches. The program records every animal caught and trials new tools, such as drones and catch alert drumlines. Its 2025 to 2029 management plan sets out how nets and drumlines will operate alongside new technology and community education (DPI, 2025).
 
 Nets and drumlines catch more than the sharks they are set for. The DPI (2024) notes that other marine animals, including whales, dolphins and turtles, are sometimes caught. To limit this, the program checks gear regularly, releases non-target animals alive where possible, uses drumlines instead of nets where it can, and uses sound devices (pingers) to deter whales and dolphins (DPI, 2024). Because release is only attempted whenever possible, some animals die in the gear. Knowing how many die, in which gear and in which areas helps managers see where these measures matter most, and it gives community groups a shared set of facts to discuss. In this note, sharks are treated as target animals, so “non-target” means any animal that is not a shark.
 
@@ -415,6 +415,6 @@ Overall, the analysis gives a useful overview of recorded non-target deaths acro
 
 ## References
 
-Department of Primary Industries (2024) Queensland Government, <https://www.dpi.qld.gov.au/news-media/campaigns/sharksmart/program/impact>
+Department of Primary Industries (2024) Queensland Government, accessed 23 October 2026, <https://www.dpi.qld.gov.au/news-media/campaigns/sharksmart/program/impact>
 
 Department of Primary Industries (2025) *Queensland shark management plan 2025 to 2029*, Queensland Government, accessed 23 October 2026, <https://www.publications.qld.gov.au/dataset/queensland-shark-control-program/resource/833f5143-055f-4fe2-891a-9a60d0635d73>
